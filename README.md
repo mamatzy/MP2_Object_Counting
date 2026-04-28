@@ -42,8 +42,6 @@ Output (Restored)
 ```
 ---
 
----
-
 ## File-file Proyek
 
 ```
@@ -77,6 +75,10 @@ python edge.py
 
 ### Hasil Deteksi 
 
+**masking**:
+![alt teks](counting_mask.png)
+
+**boundingbox**:
 ![alt teks](counting_result.png)
 
 ### Analisis dari Hasil Deteksi yang Tidak Sampoerna Seperti yang Dilihat 
