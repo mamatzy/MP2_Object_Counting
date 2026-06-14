@@ -10,17 +10,22 @@ h_val, s_val, v_val = 0, 255, 255
 ## contour
 minPanjang = 141
 minLebar = 56
+## Morpho
+param_kernel = 10
 
-def maskingMaskingGaje(image, h_val, s_val, v_val):
+### mendingan kernel 10 trus yang bounding box kecil gabung aja
+
+def maskingMaskingGaje(image, h_val, s_val, v_val, param_kernel):
     hsv = cv.cvtColor(image, cv.COLOR_BGR2HSV)
-
-    # Menentukan range 
     lower_moon = np.array([h_val, 50, 50])
     upper_moon = np.array([130, s_val, v_val])
-
     mask = cv.inRange(hsv, lower_moon, upper_moon)
 
-    return mask
+    #  Morphological Closing 
+    kernel = np.ones((param_kernel, param_kernel), np.uint8) 
+    mask_closed = cv.morphologyEx(mask, cv.MORPH_CLOSE, kernel)
+    
+    return mask_closed
 
 
 def findContoul(mask, minLebar, minPanjang):
@@ -38,11 +43,8 @@ def findContoul(mask, minLebar, minPanjang):
             
     return contours_demensipas
 
-
-def gabungBoundingBox(mask, minLebar, minPanjang):
-
-    boundingBoxes = []
-
+def gabungBoundingBox(mask, minLebar, minPanjang, jarakMaksimal):
+    # Dapatkan semua bounding box dari kontur
     boundingBoxes = findContoul(mask, minLebar, minPanjang)
 
     merged = []
@@ -59,13 +61,17 @@ def gabungBoundingBox(mask, minLebar, minPanjang):
             
             x2, y2, w2, h2 = boundingBoxes[j]
             
-            xOverlap = not (x1 + w1 < x2 or x2 + w2 < x1)
-            yOverlap = not (y1 + h1 < y2 or y2 + h2 < y1)
+            # Hitung celah (gap) antara kotak 1 dan kotak 2 di sumbu X dan Y
+            # Jika hasilnya 0, berarti mereka tumpang tindih (overlap)
+            # Jika > 0, itu adalah jarak antar tepi kotak
+            gap_x = max(0, max(x1, x2) - min(x1 + w1, x2 + w2))
+            gap_y = max(0, max(y1, y2) - min(y1 + h1, y2 + h2))
             
-            if xOverlap and yOverlap:
+            # Jika jarak kotak di bawah batas toleransi, gabungkan ke dalam satu grup
+            if gap_x <= jarakMaksimal and gap_y <= jarakMaksimal:
                 group.append(j)
 
-        # Gabungkan bounding box dalam grup
+        # Gabungkan bounding box yang ada dalam satu grup
         if group:
             x_min = min(boundingBoxes[k][0] for k in group)
             y_min = min(boundingBoxes[k][1] for k in group)
@@ -85,12 +91,12 @@ def gambarHasil(image, boundingBoxes):
     
     return result
 
-def main(display_width, display_height, h_val, s_val, v_val, minLebar, minPanjang):
+def main(display_width, display_height, h_val, s_val, v_val, minLebar, minPanjang, param_kernel):
 
     while True:
         frame = cv.imread("parking_ori.jpg")
 
-        mask = maskingMaskingGaje(frame, h_val, s_val, v_val)
+        mask = maskingMaskingGaje(frame, h_val, s_val, v_val, param_kernel)
 
         boundingBoxes = gabungBoundingBox(mask, minLebar, minPanjang)
 
@@ -108,8 +114,8 @@ def main(display_width, display_height, h_val, s_val, v_val, minLebar, minPanjan
         cv.imshow('Result', show_result)
         cv.imshow('Mask (Hitam Putih)', show_mask)
 
-        cv.imwrite("counting_mask.png", mask)
-        cv.imwrite("counting_result.png", result)
+        cv.imwrite(f"counting_mask{param_kernel}.png", mask)
+        cv.imwrite(f"counting_result{param_kernel}.png", result)
 
         key = cv.waitKey(1) & 0xFF
         
@@ -132,6 +138,6 @@ def main(display_width, display_height, h_val, s_val, v_val, minLebar, minPanjan
 
 
 if __name__ == "__main__":
-    main(display_width, display_height, h_val, s_val, v_val, minLebar, minPanjang)
+    main(display_width, display_height, h_val, s_val, v_val, minLebar, minPanjang, param_kernel)
 # mask hitam = 107, 255, 255
 # mask merah = 10, 255, 255
