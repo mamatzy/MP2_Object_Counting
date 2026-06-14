@@ -12,7 +12,7 @@ minPanjang = 141
 minLebar = 56
 ## Morpho
 param_kernel = 10
-toleransiY = 100 #untuk pembeda baris atas bawah
+## Logika Merge Bounding Box
 batasLebarBesar = 200 #pembeda mobil dengan kaca 
 gap_x_max = 290 #maksimal jarak horizontal untuk merge kaca kiri kanan
 
@@ -49,7 +49,7 @@ def findContoul(mask, minLebar, minPanjang):
             
     return contours_demensipas
 
-def gabungBoundingBox(mask, minLebar, minPanjang, toleransi_Y_sejajar, batasLebarBesar, gap_x_max):
+def gabungBoundingBox(mask, minLebar, minPanjang, batasLebarBesar, gap_x_max):
     boundingBoxes = findContoul(mask, minLebar, minPanjang)
 
     merged = []
@@ -93,7 +93,7 @@ def gabungBoundingBox(mask, minLebar, minPanjang, toleransi_Y_sejajar, batasLeba
             # - Keduanya harus kecil
             # - Jarak horizontal maksimal 200
             # - Harus dalam satu baris (vertical_diff kecil)
-            merge_kecil = (not is_besar_1 and not is_besar_2) and (gap_x <= gap_x_max) and (vertical_diff <= toleransi_Y_sejajar)
+            merge_kecil = (not is_besar_1 and not is_besar_2) and (gap_x <= gap_x_max) and (vertical_diff <= 100)
             
             if merge_mutlak or merge_kecil:
                 group.append(j)
@@ -126,16 +126,21 @@ def gambarHasil(image, boundingBoxes, batasLebarBesar):
     
     return result
 
-def main(display_width, display_height, h_val, s_val, v_val, minLebar, minPanjang, param_kernel, toleransiY, batasLebarBesar, gap_x_max):
+def main(display_width, display_height, h_val, s_val, v_val, minLebar, minPanjang, param_kernel, batasLebarBesar, gap_x_max):
 
     while True:
         frame = cv.imread("parking_ori.jpg")
 
         mask = maskingMaskingGaje(frame, h_val, s_val, v_val, param_kernel)
 
-        boundingBoxes = gabungBoundingBox(mask, minLebar, minPanjang, toleransiY, batasLebarBesar, gap_x_max)
+        boundingBoxes = gabungBoundingBox(mask, minLebar, minPanjang, batasLebarBesar, gap_x_max)
 
         result = gambarHasil(frame, boundingBoxes, batasLebarBesar)
+
+        #  MENAMPILKAN JUMLAH TOTAL MOBIL DI GAMBAR HASIL 
+        total_mobil = len(boundingBoxes)
+        teks_jumlah = f"Total Mobil: {total_mobil}"
+        cv.putText(result, teks_jumlah, (40, 60), cv.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 4)
 
         # tampilan nilai hsv
         status = f"H:{h_val} S:{s_val} V:{v_val}"
@@ -173,6 +178,6 @@ def main(display_width, display_height, h_val, s_val, v_val, minLebar, minPanjan
 
 
 if __name__ == "__main__":
-    main(display_width, display_height, h_val, s_val, v_val, minLebar, minPanjang, param_kernel, toleransiY, batasLebarBesar, gap_x_max)
+    main(display_width, display_height, h_val, s_val, v_val, minLebar, minPanjang, param_kernel, batasLebarBesar, gap_x_max)
 # mask hitam = 107, 255, 255
 # mask merah = 10, 255, 255
