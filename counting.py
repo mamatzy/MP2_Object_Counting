@@ -14,7 +14,7 @@ minLebar = 56
 param_kernel = 10
 toleransiY = 100 #untuk pembeda baris atas bawah
 batasLebarBesar = 200 #pembeda mobil dengan kaca 
-gap_x_max = 220 #maksimal jarak horizontal untuk merge kaca kiri kanan
+gap_x_max = 290 #maksimal jarak horizontal untuk merge kaca kiri kanan
 
 ### mendingan kernel 10 trus yang bounding box kecil gabung aja
 ### paling bagus counting_result10.png tinggal 
