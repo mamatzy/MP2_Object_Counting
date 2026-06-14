@@ -9,50 +9,41 @@
 
 ## Rumusan Masalah
 
-Citra di folder input memiliki tantangan untuk menghitung berupa:
-- Posisi mobil yang berdekatan 
-- Variasi warna dan pencahayaan
-- Berbagai ukuran mobil
+Citra di folder input memiliki tantangan untuk dihitung berupa:
+- Posisi mobil yang saling berdekatan.
+- Variasi warna dan pencahayaan (mobil putih rentan menyatu dengan aspal/marka).
+- Berbagai ukuran mobil dan bayangan yang memecah deteksi.
 
-**Input**: Foto aerial area parkir yang berisi sejumlah mobil dengan warna bervariasi
+**Input**: Foto aerial area parkir yang berisi sejumlah mobil dengan warna bervariasi.
 
 **Output**: 
-- Jumlah mobil yang terdeteksi
-- Citra dengan bounding box/marking untuk setiap mobil
+- Jumlah mobil yang terdeteksi (berdasarkan total kotak hijau final).
+- Citra dengan bounding box/marking untuk setiap mobil yang terdeteksi.
+
 ---
 
-## Pipeline Deteksi dan Perbandingan Metode
+## Pipeline Deteksi dan Cara Kerja
 
-```
-Input Gambar (tanpa bounding box)
+```text
+Input Gambar (Original BGR)
          ↓
-[Step 1] Masking
+[Step 1] Color Masking & Morphology
   - Convert gambar ke HSV
-  - Masking menggunakan cv2.inrange dengan range hsv [0,50,50] - [130,255,255] 
+  - Masking menggunakan cv2.inRange dengan nilai [0,50,50] - [130,255,255]
+  - Morphological Closing (Kernel 10x10) untuk memadatkan bercak piksel
          ↓
-[Step 2] Find Contours
-  - menggunakan findcontours
-  - filter ukuran contours 
+[Step 2] Find Contours & Size Filtering
+  - Menggunakan cv2.findContours
+  - Filter ukuran (mengabaikan noise/titik kecil di bawah batas panjang/lebar tertentu)
          ↓
-[Step 3] Combine Boundingbox overlap
-  - get xywh bounding box
-  - jika overlap maka jadi satu boundingbox 
+[Step 3] Spatial Bounding Box Merging (Custom Logic)
+  - Klasifikasi Bounding Box menjadi Besar (Mobil) dan Kecil (Kaca Mobil).
+  - Jika ada dua kotak "Kecil" saling berdekatan secara horizontal (gap X <= 290) 
+    dan berada di baris yang sama (selisih Y <= 100), gabungkan menjadi satu kotak.
+  - Gabung mutlak jika jarak X dan Y sangat rapat (overlap/terpecah karena noise).
          ↓
-Output (Restored)
+Output (Final Bounding Box Render)
 ```
----
-
-## File-file Proyek
-
-```
-MP2_Object_Counting/
-├── README.md                              # File ini
-├── counting.py                            # Pendekatan berbasis color
-├── edge.py                                # Pendekatan berbasis edge
-├── parking_ori.jpg                        # Input image
-└── counting_result.png                    # Output image
-```
----
 
 ## Cara Menjalankan Program
 
@@ -73,36 +64,44 @@ python edge.py
 
 ## Analisis dan Insight
 
-### Hasil Deteksi 
-
+### Hasil Deteksi
 **masking**:
-![alt teks](counting_mask10_gap200.png)
+![alt teks](counting_mask10_gap290.png)
 
 **boundingbox**:
-![alt teks](counting_result10_gap200.png)
+![alt teks](counting_result10_gap290.png)
 
-### Analisis dari Hasil Deteksi yang Tidak Sampoerna Seperti yang Dilihat 
+### Analisis dari Pembaruan Hasil Deteksi 
 
-1. Analisis Masking
-Untuk masking hanya bisa warna selain putih, jadi mobil merah, biru muda dan navy tidak masalah. Mobil putih sebenarnya tidak masalah juga karena windsheild nya ikut kedetect karena navy tapi harus kasi logic lagi yaelah malaz.  
+1. Analisis Masking (Mengatasi Mobil Putih)
+Pendekatan warna dasar tidak bisa mendeteksi bodi mobil putih karena warnanya tidak bisa dimasking mau berapapun nilai hue nya dimasukkan. Tapi masking HSV berhasil menangkap kaca depan dan belakang mobil putih yang berwarna lebih gelap/kebiruan. Bagian kaca ini saya manfaatkan sebagai perwakilan mobil untuk mendeteksi keberadaan mobil.
 
-2. Analisis Boundingbox
-Berkaca dari masalah sebelumnya dimana hasil contour terlalu banyak karena kumpulan titik kecil yang jauh dideteksi sebagai objek sendiri, inovasi saya kali ini adalah filtering dimana besar boundingbox tidak boleh lebih dari variabel hardcode saya. 
+2. Analisis Bounding Box 
+Berkaca dari masalah awal di mana satu mobil putih terdeteksi sebagai dua objek terpisah yaitu kaca depan dan kaca belakang, saya mengimplementasikan algoritma spatial merging. Bounding box difilter berdasarkan lebarnya. Kotak berukuran kecil tidak langsung dianggap sebagai noise, melainkan dicari pasangan kotak kecil lain yang berada di baris parkir yang sama dengan jarak horizontal yang divariasikan sampai benar.
 
-3. Analisis Hasil
-Hasil deteksi sangat bagus, satu mobil sekarang tidak memiliki boundingbox kecil kecil dan sekarang dianggap seperti satu boundingbox yang besar. Namun seperti yang saya katakan tadi, mobil putih hanya terdeteksi kacanya saja sehingga kedepannya saya harus membuat algoritma untuk membedakan boundingbox kaca dan mobil. 
+3. Analisis Hasil Akhir
+Hasil deteksi kini sangat baik dan hasil jumlah bounding box sama persis dengan jumlah mobil. Meski ada satu mobil yang kaca belakangnya tergabung dengan kaca depan mobil belakangnya. Algoritma sudah mampu membedakan bounding box kecil dan besar. Dua kaca mobil putih yang sebelumnya terpisah kini berhasil diikat menjadi satu bounding box hijau besar berkat modifikasi logika jarak pada sumbu X dan Y.
+
+## Insight 
+1. Morphology (Kernel 10):
+Hasil masking yang diberi morphology sangat bagus dan jadi gamechanger, jumlah bounding box noise berkurang drastis.
+.
 
 ### Apa yang Berhasil
 
-✓ Bisa membedakan mobil dengan aspal
-✓ Bisa mendeteksi salah satu objek dari mobil
-✓ Bisa filter boundingbox kecil dari noise
-✓ Bisa combine boundingbox overlap
-  Bisa menganggap kaca mobil adalah perwakilan mobil
-  Bisa menganggap dua kaca mobil adalah satu mobil
+✓ Bisa membedakan mobil dengan aspal.
+
+✓ Bisa memfilter bounding box kecil dari noise aspal/bayangan.
+
+✓ Bisa mendeteksi mobil terang/putih dengan memanfaatkan kaca depan dan belakang.
+
+✓ Berhasil menyatukan dua kaca mobil yang terpisah menjadi satu bounding box mobil utuh menggunakan logika spasial jarak horizontal dan vertikal.
+
+✓ Bisa membatalkan penggabungan jika jaraknya melebihi ukuran wajar satu mobil.
 
 ---
 
-**Status**: onprogress
-**Last Updated**: 2026
+**Status**: COMPLEETEDDD
+
+**Last Updated**: 2026 
 
