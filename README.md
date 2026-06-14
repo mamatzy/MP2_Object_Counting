@@ -76,10 +76,10 @@ python edge.py
 ### Hasil Deteksi 
 
 **masking**:
-![alt teks](counting_mask.png)
+![alt teks](counting_mask10_gap200.png)
 
 **boundingbox**:
-![alt teks](counting_result.png)
+![alt teks](counting_result10_gap200.png)
 
 ### Analisis dari Hasil Deteksi yang Tidak Sampoerna Seperti yang Dilihat 
 
