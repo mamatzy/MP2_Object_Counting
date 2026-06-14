@@ -12,6 +12,7 @@ minPanjang = 141
 minLebar = 56
 ## Morpho
 param_kernel = 10
+jarakMaksimal = 200
 
 ### mendingan kernel 10 trus yang bounding box kecil gabung aja
 
@@ -91,14 +92,14 @@ def gambarHasil(image, boundingBoxes):
     
     return result
 
-def main(display_width, display_height, h_val, s_val, v_val, minLebar, minPanjang, param_kernel):
+def main(display_width, display_height, h_val, s_val, v_val, minLebar, minPanjang, param_kernel, jarakMaksimal):
 
     while True:
         frame = cv.imread("parking_ori.jpg")
 
         mask = maskingMaskingGaje(frame, h_val, s_val, v_val, param_kernel)
 
-        boundingBoxes = gabungBoundingBox(mask, minLebar, minPanjang)
+        boundingBoxes = gabungBoundingBox(mask, minLebar, minPanjang, jarakMaksimal)
 
         result = gambarHasil(frame, boundingBoxes)
 
@@ -114,8 +115,8 @@ def main(display_width, display_height, h_val, s_val, v_val, minLebar, minPanjan
         cv.imshow('Result', show_result)
         cv.imshow('Mask (Hitam Putih)', show_mask)
 
-        cv.imwrite(f"counting_mask{param_kernel}.png", mask)
-        cv.imwrite(f"counting_result{param_kernel}.png", result)
+        cv.imwrite(f"counting_mask{param_kernel}_jarak{jarakMaksimal}.png", mask)
+        cv.imwrite(f"counting_result{param_kernel}_jarak{jarakMaksimal}.png", result)
 
         key = cv.waitKey(1) & 0xFF
         
@@ -138,6 +139,6 @@ def main(display_width, display_height, h_val, s_val, v_val, minLebar, minPanjan
 
 
 if __name__ == "__main__":
-    main(display_width, display_height, h_val, s_val, v_val, minLebar, minPanjang, param_kernel)
+    main(display_width, display_height, h_val, s_val, v_val, minLebar, minPanjang, param_kernel, jarakMaksimal)
 # mask hitam = 107, 255, 255
 # mask merah = 10, 255, 255
