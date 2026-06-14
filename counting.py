@@ -12,9 +12,14 @@ minPanjang = 141
 minLebar = 56
 ## Morpho
 param_kernel = 10
-jarakMaksimal = 200
+toleransiY = 100 #untuk pembeda baris atas bawah
+batasLebarBesar = 200 #pembeda mobil dengan kaca 
+gap_x_max = 220 #maksimal jarak horizontal untuk merge kaca kiri kanan
 
 ### mendingan kernel 10 trus yang bounding box kecil gabung aja
+### paling bagus counting_result10.png tinggal 
+# bounding box yang lebarnya kecil cari yang boundingbox lebarnya kecil
+# terus kalau jarak horizontalnya dekat dan posisi y nya gak terlalu jauh, gabung aja bounding box nya
 
 def maskingMaskingGaje(image, h_val, s_val, v_val, param_kernel):
     hsv = cv.cvtColor(image, cv.COLOR_BGR2HSV)
@@ -44,35 +49,56 @@ def findContoul(mask, minLebar, minPanjang):
             
     return contours_demensipas
 
-def gabungBoundingBox(mask, minLebar, minPanjang, jarakMaksimal):
-    # Dapatkan semua bounding box dari kontur
+def gabungBoundingBox(mask, minLebar, minPanjang, toleransi_Y_sejajar, batasLebarBesar, gap_x_max):
     boundingBoxes = findContoul(mask, minLebar, minPanjang)
 
     merged = []
     used = set()
+    
+    # Urutkan dari kiri ke kanan (Sumbu X)
+    boundingBoxes.sort(key=lambda b: b[0])
     
     for i, (x1, y1, w1, h1) in enumerate(boundingBoxes):
         if i in used:
             continue
         
         group = [i]
+        is_besar_1 = w1 >= batasLebarBesar
+        
         for j in range(i + 1, len(boundingBoxes)):
             if j in used:
                 continue
             
             x2, y2, w2, h2 = boundingBoxes[j]
+            is_besar_2 = w2 >= batasLebarBesar
             
-            # Hitung celah (gap) antara kotak 1 dan kotak 2 di sumbu X dan Y
-            # Jika hasilnya 0, berarti mereka tumpang tindih (overlap)
-            # Jika > 0, itu adalah jarak antar tepi kotak
+            # --- Menghitung Jarak ---
+            # Jarak Kanan-Kiri (Sumbu X)
             gap_x = max(0, max(x1, x2) - min(x1 + w1, x2 + w2))
+            # Jarak Atas-Bawah (Sumbu Y)
             gap_y = max(0, max(y1, y2) - min(y1 + h1, y2 + h2))
             
-            # Jika jarak kotak di bawah batas toleransi, gabungkan ke dalam satu grup
-            if gap_x <= jarakMaksimal and gap_y <= jarakMaksimal:
+            # Menghitung Kesejajaran Vertikal (Untuk cek satu baris parkir)
+            center_y1 = y1 + h1 / 2
+            center_y2 = y2 + h2 / 2
+            vertical_diff = abs(center_y1 - center_y2)
+            
+            # --- LOGIKA MERGE BARU ---
+            
+            # Aturan 1: Merge Mutlak (Jarak sangat dekat 0-10 di X dan Y)
+            # Kita cek gap_y juga agar tidak merge dengan mobil di baris atas/bawahnya
+            merge_mutlak = gap_x <= 20 and gap_y <= 10
+            
+            # Aturan 2: Merge Bounding Box Kecil (Kaca Kiri & Kanan)
+            # - Keduanya harus kecil
+            # - Jarak horizontal maksimal 200
+            # - Harus dalam satu baris (vertical_diff kecil)
+            merge_kecil = (not is_besar_1 and not is_besar_2) and (gap_x <= gap_x_max) and (vertical_diff <= toleransi_Y_sejajar)
+            
+            if merge_mutlak or merge_kecil:
                 group.append(j)
 
-        # Gabungkan bounding box yang ada dalam satu grup
+        # Proses menggabungkan koordinat grup menjadi satu Bounding Box
         if group:
             x_min = min(boundingBoxes[k][0] for k in group)
             y_min = min(boundingBoxes[k][1] for k in group)
@@ -84,24 +110,32 @@ def gabungBoundingBox(mask, minLebar, minPanjang, jarakMaksimal):
     
     return merged
 
-def gambarHasil(image, boundingBoxes):
+def gambarHasil(image, boundingBoxes, batasLebarBesar):
     result = image.copy()
     
-    for i, (x, y, w, h) in enumerate(boundingBoxes, 1):
-        cv.rectangle(result, (x, y), (x + w, y + h), (0, 255, 0), 2)
+    for (x, y, w, h) in boundingBoxes:
+        # Cek hanya LEBAR (w) setelah proses merge
+        if w >= batasLebarBesar:
+            warna = (0, 255, 0)      # Hijau 
+            ketebalan_font = 2
+        else:
+            warna = (0, 165, 255)    # Oranye 
+            ketebalan_font = 1
+        
+        cv.rectangle(result, (x, y), (x + w, y + h), warna, 2)
     
     return result
 
-def main(display_width, display_height, h_val, s_val, v_val, minLebar, minPanjang, param_kernel, jarakMaksimal):
+def main(display_width, display_height, h_val, s_val, v_val, minLebar, minPanjang, param_kernel, toleransiY, batasLebarBesar, gap_x_max):
 
     while True:
         frame = cv.imread("parking_ori.jpg")
 
         mask = maskingMaskingGaje(frame, h_val, s_val, v_val, param_kernel)
 
-        boundingBoxes = gabungBoundingBox(mask, minLebar, minPanjang, jarakMaksimal)
+        boundingBoxes = gabungBoundingBox(mask, minLebar, minPanjang, toleransiY, batasLebarBesar, gap_x_max)
 
-        result = gambarHasil(frame, boundingBoxes)
+        result = gambarHasil(frame, boundingBoxes, batasLebarBesar)
 
         # tampilan nilai hsv
         status = f"H:{h_val} S:{s_val} V:{v_val}"
@@ -115,8 +149,8 @@ def main(display_width, display_height, h_val, s_val, v_val, minLebar, minPanjan
         cv.imshow('Result', show_result)
         cv.imshow('Mask (Hitam Putih)', show_mask)
 
-        cv.imwrite(f"counting_mask{param_kernel}_jarak{jarakMaksimal}.png", mask)
-        cv.imwrite(f"counting_result{param_kernel}_jarak{jarakMaksimal}.png", result)
+        cv.imwrite(f"counting_mask{param_kernel}_gap{gap_x_max}.png", mask)
+        cv.imwrite(f"counting_result{param_kernel}_gap{gap_x_max}.png", result)
 
         key = cv.waitKey(1) & 0xFF
         
@@ -139,6 +173,6 @@ def main(display_width, display_height, h_val, s_val, v_val, minLebar, minPanjan
 
 
 if __name__ == "__main__":
-    main(display_width, display_height, h_val, s_val, v_val, minLebar, minPanjang, param_kernel, jarakMaksimal)
+    main(display_width, display_height, h_val, s_val, v_val, minLebar, minPanjang, param_kernel, toleransiY, batasLebarBesar, gap_x_max)
 # mask hitam = 107, 255, 255
 # mask merah = 10, 255, 255
